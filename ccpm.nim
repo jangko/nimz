@@ -41,7 +41,7 @@ proc extractBitLen(coins: Coins, lengths: var seq[int]) =
     for sym in coin.symbols:
       inc lengths[sym]
 
-proc codeLengths*(freq: openArray[int], maxbitlen: int): seq[int] =
+proc codeLengths*(freq: openArray[int], maxBitLen: int): seq[int] =
   let numCodes = freq.len
 
   if numCodes == 0:
@@ -72,17 +72,17 @@ proc codeLengths*(freq: openArray[int], maxbitlen: int): seq[int] =
         break
   else:
     # Package-Merge algorithm represented by coin collector's problem
-    # For every symbol, maxbitlen coins will be created
+    # For every symbol, maxBitLen coins will be created
     var coins = newSeqOfCap[Coin](numSymbols)
 
     # first row, lowest denominator
     coins.appendSymbolCoins(freq, freqSum)
     coins.sort(cmp)
 
-    for j in 1..maxbitlen: #each of the remaining rows
+    for j in 1..maxBitLen: #each of the remaining rows
       coins = coins.merge(numSymbols)
       # fill in all the original symbols again
-      if j < maxbitlen: coins.appendSymbolCoins(freq, freqSum)
+      if j < maxBitLen: coins.appendSymbolCoins(freq, freqSum)
       coins.sort(cmp)
 
     # calculate the lengths of each symbol,

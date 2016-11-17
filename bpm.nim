@@ -29,11 +29,11 @@ proc cmp(a, b: Node): int =
 proc createNode(weight, index: int, tail: PNode = nil): PNode =
   result = PNode(weight: weight, index: index, tail: tail)
 
-proc initChains(leaves: seq[Node], maxbitlen: int): TChains =
+proc initChains(leaves: seq[Node], maxBitLen: int): TChains =
   var node0 = createNode(leaves[0].weight, 1)
   var node1 = createNode(leaves[1].weight, 2)
-  result[0] = newSeqWith(maxbitlen, node0)
-  result[1] = newSeqWith(maxbitlen, node1)
+  result[0] = newSeqWith(maxBitLen, node0)
+  result[1] = newSeqWith(maxBitLen, node1)
 
 proc boundaryPM(chains: var TChains, leaves: seq[Node], numSymbols, c: int, final: bool) =
   let oldChain = chains[1][c]
@@ -64,11 +64,11 @@ proc extractBitLen(node: PNode, leaves: seq[Node], lengths: var seq[int]) =
       inc lengths[leaves[i].index]
     n = n.tail
 
-proc codeLengths*(freq: openArray[int], maxbitlen: int): seq[int] =
+proc codeLengths*(freq: openArray[int], maxBitLen: int): seq[int] =
   let numCodes = freq.len
 
   if numCodes == 0: raise NZError()
-  if (1 shl maxbitlen) < numCodes: raise NZError()
+  if (1 shl maxBitLen) < numCodes: raise NZError()
 
   var leaves = freq.toLeaves
   let numSymbols = leaves.len
@@ -82,13 +82,13 @@ proc codeLengths*(freq: openArray[int], maxbitlen: int): seq[int] =
     lengths[if leaves[0].index == 0: 1 else: 0] = 1
   else:
     leaves.sort(cmp)
-    var chains = initChains(leaves, maxbitlen)
+    var chains = initChains(leaves, maxBitLen)
 
     let bpmRun = 2 * numSymbols - 2
     for i in 2.. <bpmRun:
       let final = i == bpmRun - 1
-      boundaryPM(chains, leaves, numSymbols, maxbitlen - 1, final)
+      boundaryPM(chains, leaves, numSymbols, maxBitLen - 1, final)
 
-    extractBitLen(chains[1][maxbitlen-1], leaves, lengths)
+    extractBitLen(chains[1][maxBitLen-1], leaves, lengths)
 
   result = lengths

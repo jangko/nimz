@@ -1,4 +1,4 @@
-import sequtils
+import sequtils, strutils
 #[typedef struct huffman_node_t
 
 
@@ -98,7 +98,9 @@ proc buildHuffmanTree(ranges: seq[huffmanRange]): huffmanNode =
   for n in 0..lastPoint:
     var node = root
     if tree[ n ].len == 0: continue
-  
+    
+    echo n, " : ", toBin(tree[n].code, tree[n].len)
+    
     for bits in countdown(tree[ n ].len, 1):
       if (tree[ n ].code and (1 shl (bits - 1))) != 0:
         if node.one == nil:
@@ -112,3 +114,6 @@ proc buildHuffmanTree(ranges: seq[huffmanRange]): huffmanNode =
     node.code = n
     
   result = root
+  
+var x = initRange()
+var node = buildHuffmanTree(x)

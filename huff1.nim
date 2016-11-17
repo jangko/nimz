@@ -53,23 +53,24 @@ proc generateCodes(codes: TableRef[char, HuffCode], currentNode: Node, currentCo
  
 proc buildTree(frequencies: CountTable[char]): seq[Node] =
     result = newSeq[Node](frequencies.len)
+    let keys = toSeq(frequencies.keys)
     for i in result.low..result.high:
-        let key = toSeq(frequencies.keys)[i]
-        result[i] = Node(f: frequencies[key], isLeaf: true, c: key)
+      let key = keys[i]  
+      result[i] = Node(f: frequencies[key], isLeaf: true, c: key)
     while result.freeChildList.len > 1:
-        let currentNode = new Node
-        result.add(currentNode)
-        for c in currentNode.childs:
-            currentNode.connect(min(result.freeChildList(currentNode)))
-            if result.freeChildList.len <= 1:
-                break
+      let currentNode = new Node
+      result.add(currentNode)
+      for c in currentNode.childs:
+        currentNode.connect(min(result.freeChildList(currentNode)))
+        if result.freeChildList.len <= 1:
+          break
  
 var sampleFrequencies = initCountTable[char]()
 for c in sampleString:
-    sampleFrequencies.inc(c)
+  sampleFrequencies.inc(c)
 let 
-    tree = buildTree(sampleFrequencies)
-    root = tree.freeChildList[0]
+  tree = buildTree(sampleFrequencies)
+  root = tree.freeChildList[0]
 var huffCodes = newTable[char, HuffCode]()
 generateCodes(huffCodes, root)
 echo huffCodes

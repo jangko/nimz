@@ -32,7 +32,7 @@ proc make2D(tree: var HuffmanTree) =
       let bit = (tree.tree1d[n] shr (len - i - 1)) and 1
       let branch = 2 * treePos + bit
       #oversubscribed, see comment in lodepng_error_text
-      if treePos > 0x‭7FFFFFFF‬ or treePos + 2 > tree.numCodes:
+      if treePos > 0x7FFFFFFF or treePos + 2 > tree.numCodes:
         nzerror(ERR_OVERSUBSCRIBED)
 
       if tree.tree2d[branch] != 0x7FFF: #not yet filled in
@@ -76,14 +76,14 @@ proc make1D(tree: var HuffmanTree) =
 # given the code lengths (as stored in the compressed data),
 # generate the tree as defined by Deflate.
 # maxBitLen is the maximum bits that a code in the tree can have.
-proc makeFromLengths(input: openArray[int], maxBitLen: int): HuffmanTree =
+proc makeFromLengths*(input: openArray[int], maxBitLen: int): HuffmanTree =
   result.lengths   = @input
   result.numCodes  = input.len #number of symbols
   result.maxBitLen = maxBitLen
   result.make1D
   result.make2D
   
-proc trimFreq(freq: seq[int], minCodes: int): seq[int] =
+proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =
   var numCodes = freq.len
   while(freq[numCodes - 1] == 0) and (numCodes > minCodes):
     dec numCodes #trim zeroes
@@ -92,7 +92,7 @@ proc trimFreq(freq: seq[int], minCodes: int): seq[int] =
   for i in 0.. <numCodes: result[i] = freq[i]
   
 #Create the Huffman tree given the symbol frequencies
-proc makeFromFrequencies(input: seq[int], minCodes, maxBitLen: int, algo: PM_ALGO): HuffmanTree =
+proc makeFromFrequencies*(input: openArray[int], minCodes, maxBitLen: int, algo: PM_ALGO): HuffmanTree =
   let freq = trimFreq(input, minCodes)
   let numCodes = freq.len
   result.maxBitLen = maxBitLen
@@ -101,25 +101,30 @@ proc makeFromFrequencies(input: seq[int], minCodes, maxBitLen: int, algo: PM_ALG
   result.make1D
   
 #returns the code, or (unsigned)(-1) if error happened
-#inbitlength is the length of the complete buffer, in bits (so its byte length times 8)
-proc huffmanDecodeSymbol(s: var BitStream, codetree: HuffmanTree, inbitlength: int): int =
+#inbitLength is the length of the complete buffer, in bits (so its byte length times 8)
+proc decodeSymbol*(s: var BitStream, tree: HuffmanTree, inbitLength: int): int =
   var treePos = 0
 
   while true:
-    if s.bitPointer >= inbitlength:
-      return -1 #end of input memory reached without endcode
+    if s.bitPointer >= inbitLength:
+      nzerror(ERR_NO_END_CODE) #end of input memory reached without endcode
 
     #decode the symbol from the tree. The "readBitFromStream" code is inlined in
     #the expression below because this is the biggest bottleneck while decoding
-    let ct = codetree.tree2d[(treePos shl 1) + s.readBit]
+    let ct = tree.tree2d[(treePos shl 1) + s.readBit]
     inc s.bitPointer
-    if ct < codetree.numCodes: return ct #the symbol is decoded, return it
-    else: treePos = ct - codetree.numCodes #symbol not yet decoded, instead move tree position
+    if ct < tree.numCodes: return ct #the symbol is decoded, return it
+    else: treePos = ct - tree.numCodes #symbol not yet decoded, instead move tree position
 
-    if treePos >= codetree.numCodes: return -1 #it appeared outside the codetree
+    if treePos >= tree.numCodes: #it appeared outside the codetree
+      nzerror(ERR_WRONG_JUMP_OUTSIDE_OF_TREE)
     
 proc getCode*(tree: HuffmanTree, index: int): int =
   result = tree.tree1d[index]
 
 proc getLength*(tree: HuffmanTree, index: int): int =
   result = tree.lengths[index]
+
+proc getNumCodes*(tree: HuffmanTree): int = tree.numCodes
+
+proc getLengths*(tree: HuffmanTree): seq[int] = tree.lengths

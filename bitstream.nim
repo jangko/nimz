@@ -82,3 +82,6 @@ proc addBitsToStreamReversed*(s: var BitStream, value: int, nbits: int) =
   assert(s.dataBitLen == -1)
   for i in 0..nbits-1:
     s.addBitToStream((value shr (nbits - 1 - i)) and 1)
+    
+proc getData*(s: BitStream): string = s.data
+proc getBitLen*(s: BitStream): int = s.data.len * 8

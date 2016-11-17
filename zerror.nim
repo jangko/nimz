@@ -2,11 +2,15 @@ type
   NZError = ref object of Exception
   ErrorType* = enum
     ERR_BIT_POINTER_JUMP_PAST_MEMORY,
-    ERR_OVERSUBSCRIBED
+    ERR_OVERSUBSCRIBED,
+    ERR_WRONG_JUMP_OUTSIDE_OF_TREE,
+    ERR_NO_END_CODE
 
 const error_msg = [
   "bit pointer jumps past memory",
-  "oversubscribed"
+  "oversubscribed",
+  "wrong jump outside of tree",
+  "no end code"
   ]
 
 proc newNZError(msg: string): NZError =

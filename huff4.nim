@@ -1,4 +1,4 @@
-import sequtils, bitstream, zerror, packagemerge
+import sequtils, bitstream, zerror, packagemerge, strutils
 
 type
   HuffmanTree = object
@@ -83,6 +83,66 @@ proc makeFromLengths*(input: openArray[int], maxBitLen: int): HuffmanTree =
   result.make1D
   result.make2D
   
+type
+  HDC = object
+    symbol: int
+    len: int    
+  
+proc makeMask(maskLen: int): int =
+  let len = sizeof(int) * 8
+  let maskDist = len - maskLen
+  result = ((not 0) shl maskDist) shr maskDist
+    
+proc makeFromLengths2*(input: openArray[int], maxBitLen: int): seq[HDC] =
+  var tree: HuffmanTree
+  tree.lengths   = @input
+  tree.numCodes  = input.len #number of symbols
+  tree.maxBitLen = maxBitLen
+  tree.make1D
+  
+  let maskLen = 4
+  let mask = makeMask(maskLen)
+  var lut = newSeqWith(mask+1, HDC(symbol: -1, len: -1))
+  
+  let numCodes = tree.numCodes
+  var codes = newSeq[int](numCodes)
+  for i in 0.. <numCodes:
+    var code = tree.tree1d[i]
+    var inv = 0
+    let len = tree.lengths[i]
+    for x in 0.. <len:
+      inv = inv or ((code shr (len - 1 - x)) and 1) shl x
+    codes[i] = inv
+  
+  for i in 0.. <numCodes:
+    let code = codes[i]
+    let len = tree.lengths[i]    
+    if len != 0:
+      let index = code and mask      
+      if (len - maskLen) <= 0:        
+        if lut[index].symbol != -1:
+          echo "err: ", toBin(code, len), " : ", lut[index].symbol, ", ", toBin(index, maskLen)
+          break
+        lut[index].symbol = i
+        lut[index].len = len
+      else:                    
+        var e = lut[index].addr        
+        if e.symbol < 300:
+          let oldLen = lut.len
+          let newLen = oldLen + makeMask(6 - maskLen) + 1
+          e.symbol = 300 + len - maskLen
+          e.len = oldLen
+                    
+          lut.setLen(newLen)
+          for j in oldLen.. <newLen:
+            lut[j].symbol = -1
+            lut[j].len = -1
+          
+        let newIndex = e.len + (code shr maskLen)
+        lut[newIndex].symbol = i
+        lut[newIndex].len = len - maskLen
+  result = lut
+  
 proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =
   var numCodes = freq.len
   while(freq[numCodes - 1] == 0) and (numCodes > minCodes):
@@ -119,6 +179,28 @@ proc decodeSymbol*(s: var BitStream, tree: HuffmanTree, inbitLength: int): int =
     if treePos >= tree.numCodes: #it appeared outside the codetree
       nzerror(ERR_WRONG_JUMP_OUTSIDE_OF_TREE)
     
+proc decodeSymbol*(s: var BitStream, tree: seq[HDC], inbitLength: int): int =
+  let maskLen = 4
+  
+  if s.bitPointer >= inbitLength:
+    nzerror(ERR_NO_END_CODE) #end of input memory reached without endcode      
+    
+  var index = s.readBitsFromStream(maskLen)
+  echo toBin(index, maskLen)
+  
+  var code = tree[index].symbol
+  var len = tree[index].len
+
+  if code >= 0 and code < 300:
+    dec(s.bitPointer, maskLen - len)
+    return code
+  
+  let nlen = code - 300
+  index = s.readBitsFromStream(nlen)
+     
+  code = tree[index + len].symbol
+  return code    
+      
 proc getCode*(tree: HuffmanTree, index: int): int =
   result = tree.tree1d[index]
 

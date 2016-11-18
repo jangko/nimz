@@ -6,7 +6,7 @@ type
     lengths: seq[int] #the lengths of the codes of the 1d-tree
     maxBitLen: int    #maximum number of bits a single code can get
     numCodes: int     #number of symbols in the alphabet = number of codes
-    
+
 # Second step for the ...makeFromLengths and ...makeFromFrequencies functions.
 # numCodes, lengths and maxBitLen must already be filled in correctly.
 # the tree representation used by the decoder.
@@ -53,7 +53,7 @@ proc make2D(tree: var HuffmanTree) =
       treePos = 0 #start from root again
 
   tree.tree2d.applyIt(if it == 0x7FFF: 0 else: it) #remove possible remaining 32767's
-  
+
 proc make1D(tree: var HuffmanTree) =
   tree.tree1d = newSeq[int](tree.numCodes)
   var blCount = newSeq[int](tree.maxBitLen + 1)
@@ -72,7 +72,7 @@ proc make1D(tree: var HuffmanTree) =
     if len != 0:
       tree.tree1d[n] = nextCode[len]
       inc nextCode[len]
-      
+
 # given the code lengths (as stored in the compressed data),
 # generate the tree as defined by Deflate.
 # maxBitLen is the maximum bits that a code in the tree can have.
@@ -82,67 +82,99 @@ proc makeFromLengths*(input: openArray[int], maxBitLen: int): HuffmanTree =
   result.maxBitLen = maxBitLen
   result.make1D
   result.make2D
-  
+
 type
   HDC = object
     symbol: int
-    len: int    
-  
+    len: int
+
+  HDTree = object
+    tree: seq[HDC]
+    maxCodes: int
+    
 proc makeMask(maskLen: int): int =
   let len = sizeof(int) * 8
   let maskDist = len - maskLen
   result = ((not 0) shl maskDist) shr maskDist
-    
-proc makeFromLengths2*(input: openArray[int], maxBitLen: int): seq[HDC] =
+
+const MASUKU_LENU = 7
+
+proc makeFromLengths2*(input: openArray[int], maxBitLen: int): HDTree =
   var tree: HuffmanTree
   tree.lengths   = @input
   tree.numCodes  = input.len #number of symbols
   tree.maxBitLen = maxBitLen
   tree.make1D
-  
-  let maskLen = 4
+
+  let maskLen = MASUKU_LENU
   let mask = makeMask(maskLen)
   var lut = newSeqWith(mask+1, HDC(symbol: -1, len: -1))
-  
+
   let numCodes = tree.numCodes
+  var maxBit = 0
+  var maxCodes = 0
   var codes = newSeq[int](numCodes)
   for i in 0.. <numCodes:
     var code = tree.tree1d[i]
     var inv = 0
     let len = tree.lengths[i]
+    if len > maxBit: maxBit = len
+    if len != 0 and i > maxCodes:
+      maxCodes = i
     for x in 0.. <len:
       inv = inv or ((code shr (len - 1 - x)) and 1) shl x
     codes[i] = inv
+
+  inc maxCodes
   
   for i in 0.. <numCodes:
     let code = codes[i]
-    let len = tree.lengths[i]    
+    let len = tree.lengths[i]
     if len != 0:
-      let index = code and mask      
-      if (len - maskLen) <= 0:        
+      let index = code and mask
+      if (len - maskLen) <= 0:
         if lut[index].symbol != -1:
           echo "err: ", toBin(code, len), " : ", lut[index].symbol, ", ", toBin(index, maskLen)
           break
         lut[index].symbol = i
         lut[index].len = len
-      else:                    
-        var e = lut[index].addr        
-        if e.symbol < 300:
+      else:
+        var e = lut[index].addr
+        if e.symbol < maxCodes:
           let oldLen = lut.len
-          let newLen = oldLen + makeMask(6 - maskLen) + 1
-          e.symbol = 300 + len - maskLen
+          let newLen = oldLen + makeMask(maxBit - maskLen) + 1
+          e.symbol = maxCodes + len - maskLen
           e.len = oldLen
-                    
+
           lut.setLen(newLen)
           for j in oldLen.. <newLen:
             lut[j].symbol = -1
             lut[j].len = -1
-          
+
         let newIndex = e.len + (code shr maskLen)
+        #echo newIndex, ", ", lut.len
         lut[newIndex].symbol = i
         lut[newIndex].len = len - maskLen
-  result = lut
   
+  for i in 0.. <numCodes:
+    let code = codes[i]
+    let len = tree.lengths[i]
+    if len != 0 and len < maskLen:
+      var index = code and mask
+      let nlen = makeMask(maskLen - len) + 1            
+      for z in 0.. <nlen:
+        let newIndex = index or (z shl (len))
+        #if i == 'r'.ord:
+          #echo toBin(newIndex, maskLen), ", ", z, ", ", toBin(z, maskLen)
+        if lut[newIndex].symbol == -1:
+          lut[newIndex].symbol = i
+          lut[newIndex].len = len
+                    
+  result.tree = lut
+  result.maxCodes = maxCodes
+  #for i in 0.. <lut.len:
+    #echo i, ", ", lut[i]
+
 proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =
   var numCodes = freq.len
   while(freq[numCodes - 1] == 0) and (numCodes > minCodes):
@@ -150,7 +182,7 @@ proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =
 
   result = newSeq[int](numCodes)
   for i in 0.. <numCodes: result[i] = freq[i]
-  
+
 #Create the Huffman tree given the symbol frequencies
 proc makeFromFrequencies*(input: openArray[int], minCodes, maxBitLen: int, algo: PM_ALGO): HuffmanTree =
   let freq = trimFreq(input, minCodes)
@@ -159,7 +191,7 @@ proc makeFromFrequencies*(input: openArray[int], minCodes, maxBitLen: int, algo:
   result.numCodes  = numCodes #number of symbols
   result.lengths   = codeLengths(freq, maxBitLen, algo)
   result.make1D
-  
+
 #returns the code, or (unsigned)(-1) if error happened
 #inbitLength is the length of the complete buffer, in bits (so its byte length times 8)
 proc decodeSymbol*(s: var BitStream, tree: HuffmanTree, inbitLength: int): int =
@@ -178,29 +210,29 @@ proc decodeSymbol*(s: var BitStream, tree: HuffmanTree, inbitLength: int): int =
 
     if treePos >= tree.numCodes: #it appeared outside the codetree
       nzerror(ERR_WRONG_JUMP_OUTSIDE_OF_TREE)
-    
-proc decodeSymbol*(s: var BitStream, tree: seq[HDC], inbitLength: int): int =
-  let maskLen = 4
-  
-  if s.bitPointer >= inbitLength:
-    nzerror(ERR_NO_END_CODE) #end of input memory reached without endcode      
-    
-  var index = s.readBitsFromStream(maskLen)
-  echo toBin(index, maskLen)
-  
-  var code = tree[index].symbol
-  var len = tree[index].len
 
-  if code >= 0 and code < 300:
+proc decodeSymbol*(s: var BitStream, tree: HDTree, inbitLength: int): int =
+  let maskLen = MASUKU_LENU
+
+  if s.bitPointer >= inbitLength:
+    nzerror(ERR_NO_END_CODE) #end of input memory reached without endcode
+
+  var index = s.readBitsFromStream(maskLen)
+  #echo toBin(index, maskLen)
+
+  var code = tree.tree[index].symbol
+  var len = tree.tree[index].len
+
+  if code >= 0 and code < tree.maxCodes:
     dec(s.bitPointer, maskLen - len)
     return code
-  
-  let nlen = code - 300
-  index = s.readBitsFromStream(nlen)
-     
-  code = tree[index + len].symbol
-  return code    
-      
+
+  let nlen = code - tree.maxCodes
+  let newIndex = s.readBitsFromStream(nlen)  
+  #echo toBin(index, maskLen), ", ", index, ", ", newIndex, ", ", len
+  code = tree.tree[newIndex + len].symbol
+  return code
+
 proc getCode*(tree: HuffmanTree, index: int): int =
   result = tree.tree1d[index]
 

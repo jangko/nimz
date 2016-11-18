@@ -91,13 +91,14 @@ type
   HDTree = object
     tree: seq[HDC]
     maxCodes: int
+    maxBit: int
     
 proc makeMask(maskLen: int): int =
   let len = sizeof(int) * 8
   let maskDist = len - maskLen
   result = ((not 0) shl maskDist) shr maskDist
 
-const MASUKU_LENU = 7
+const MASUKU_LENU = 9
 
 proc makeFromLengths2*(input: openArray[int], maxBitLen: int): HDTree =
   var tree: HuffmanTree
@@ -134,27 +135,66 @@ proc makeFromLengths2*(input: openArray[int], maxBitLen: int): HDTree =
       let index = code and mask
       if (len - maskLen) <= 0:
         if lut[index].symbol != -1:
-          echo "err: ", toBin(code, len), " : ", lut[index].symbol, ", ", toBin(index, maskLen)
+          echo "err: ", reverse(toBin(code, len)), " : ", lut[index].symbol, ", ", toBin(index, maskLen)
           break
         lut[index].symbol = i
         lut[index].len = len
-      else:
+      else:        
         var e = lut[index].addr
         if e.symbol < maxCodes:
           let oldLen = lut.len
           let newLen = oldLen + makeMask(maxBit - maskLen) + 1
           e.symbol = maxCodes + len - maskLen
           e.len = oldLen
+          #if i == 'Y'.ord: 
+          #  echo "AA len: ", len
+          #  echo "index: ", index
+          #  echo "index: ", toBin(index, maskLen)
+          #  echo "symbol: ", e.symbol
 
           lut.setLen(newLen)
           for j in oldLen.. <newLen:
             lut[j].symbol = -1
             lut[j].len = -1
 
-        let newIndex = e.len + (code shr maskLen)
+        #if e.symbol == 124:
+        #  echo "i: ", i
+        #  echo "i.chr: ", i.chr
+        
+        if len == maxBit:
+          let newIndex = e.len + (code shr maskLen)
+          lut[newIndex].symbol = i
+          lut[newIndex].len = len - maskLen
+        else:
+          let zlen = len - maskLen        
+          let nlen = makeMask(maxBit - maskLen - zlen) + 1
+          let zIndex = e.len + (code shr maskLen)
+          #if i == 'Y'.ord:
+          #  echo "code: ", toBin(code, len)
+          #  echo "zlen: ", zlen
+          #  echo "nlen: ", nlen
+          #  echo "e.len: ", e.len, ", ", toBin(e.len, maxBit)
+          #  echo "zIndex: ", zIndex, ", ", toBin(zIndex, maxBit)
+          #  echo "lut.len: ", lut.len
+          for z in 0.. <nlen:
+            let newIndex = zIndex or (z shl (zlen))
+            #if i == 'Y'.ord:
+              #echo "newIndex: ", newIndex, ", ", toBin(newIndex, maxBit)
+                
         #echo newIndex, ", ", lut.len
-        lut[newIndex].symbol = i
-        lut[newIndex].len = len - maskLen
+        #if i == 'Y'.ord: 
+        #  echo "index: ", index
+        #  echo "e.len: ", e.len
+        #  echo "newIndex: ", newIndex
+        #  echo "code: ", toBin(code shr maskLen, len - maskLen)
+        #  echo "s.symbol: ", e.symbol
+        #  echo "ss: ", maxCodes + len - maskLen
+        #  echo "maxCodes: ", maxCodes
+        #  echo "tree.len: ", tree.lengths[i]
+        #  echo "len: ", len - maskLen
+            if lut[newIndex].symbol == -1:
+              lut[newIndex].symbol = i
+              lut[newIndex].len = len - maskLen
   
   for i in 0.. <numCodes:
     let code = codes[i]
@@ -168,12 +208,18 @@ proc makeFromLengths2*(input: openArray[int], maxBitLen: int): HDTree =
           #echo toBin(newIndex, maskLen), ", ", z, ", ", toBin(z, maskLen)
         if lut[newIndex].symbol == -1:
           lut[newIndex].symbol = i
-          lut[newIndex].len = len
+          lut[newIndex].len = len              
                     
   result.tree = lut
   result.maxCodes = maxCodes
+  result.maxBit = maxBit
   #for i in 0.. <lut.len:
-    #echo i, ", ", lut[i]
+  # if lut[i].symbol >= maxCodes:
+  #   echo i, ", ", reverse(toBin(i, maskLen)), ", ", lut[i].symbol
+  # elif lut[i].symbol == -1:
+  #   echo i, ", ", reverse(toBin(i, maskLen)), ", ", lut[i].symbol
+  # else:
+  #   echo i, ", ", reverse(toBin(i, maskLen)), ", ", lut[i].symbol.chr
 
 proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =
   var numCodes = freq.len
@@ -215,22 +261,44 @@ proc decodeSymbol*(s: var BitStream, tree: HDTree, inbitLength: int): int =
   let maskLen = MASUKU_LENU
 
   if s.bitPointer >= inbitLength:
+    #echo s.bitPointer
+    #echo inbitLength
     nzerror(ERR_NO_END_CODE) #end of input memory reached without endcode
 
   var index = s.readBitsFromStream(maskLen)
-  #echo toBin(index, maskLen)
-
+  
   var code = tree.tree[index].symbol
   var len = tree.tree[index].len
 
   if code >= 0 and code < tree.maxCodes:
+    #if code == 'a'.ord:
+      #echo "BB: ", reverse(toBin(index, maskLen))
+      
+    #echo "a: ", len
+    #stdout.write(reverse(toBin(index, len)))
+    #stdout.write(" ")
+  
     dec(s.bitPointer, maskLen - len)
     return code
 
-  let nlen = code - tree.maxCodes
-  let newIndex = s.readBitsFromStream(nlen)  
-  #echo toBin(index, maskLen), ", ", index, ", ", newIndex, ", ", len
+  #let nlen = code - tree.maxCodes
+  let newIndex = s.readBitsFromStream(tree.maxBit - maskLen)
+  
+  #if index == 0x7F:
+  #  echo "\ncode: ", code
+  #  echo "len: ", len
+  #  echo "nlen: ", nlen
+  #  echo "newIndex: ", nlen
+  #echo "b"
+  #stdout.write(reverse(toBin(index, maskLen)))
+  #stdout.write(reverse(toBin(newIndex, tree.maxBit - maskLen)))
+  #stdout.write(" ")
+  
   code = tree.tree[newIndex + len].symbol
+  dec(s.bitPointer, (tree.maxBit - maskLen) - tree.tree[newIndex + len].len)
+  
+  #if code == 'a'.ord:
+    #echo reverse(toBin(index, maskLen)), ", ", index, ", ", newIndex, ", ", len
   return code
 
 proc getCode*(tree: HuffmanTree, index: int): int =

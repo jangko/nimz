@@ -5,7 +5,12 @@ type
     bitPointer*: int
     data: string
     dataBitLen: int
-
+    
+proc reverse*(s: string): string =
+  result = newStringOfCap(s.len)
+  for i in countdown(s.len-1, 0):
+    result.add s[i]
+    
 # BitStream for deflate constructor
 proc initBitStream*(): BitStream =
   result.bitPointer = 0
@@ -20,6 +25,11 @@ proc initBitStream*(input: string): BitStream =
     
 proc readBit*(s: BitStream): int {.inline.} =
   assert(s.dataBitLen != -1)
+  result = (ord(s.data[s.bitPointer shr 3]) shr (s.bitPointer and 0x07)) and 0x01
+  
+proc readBitSafe*(s: BitStream): int {.inline.} =
+  assert(s.dataBitLen != -1)
+  if s.bitPointer + 1 > s.dataBitLen: return 0
   result = (ord(s.data[s.bitPointer shr 3]) shr (s.bitPointer and 0x07)) and 0x01
 
 proc readBitFromStream*(s: var BitStream): int {.inline.} =

@@ -1,8 +1,8 @@
-import huff4, packagemerge, bitstream, strutils
+import huff_basic, packagemerge, bitstream, strutils
 
-const sampleString = "metihello tobulinum Lorem Ipsum Dolor Sit amtculae probkulc\n\r\t\b opqiscis man\x15\x18uhutelatzxma abcs234211/[]ASQWECMPPQWW@M~>?" & '\x00'
+#const sampleString = "metihello tobulinum Lorem Ipsum Dolor Sit amtculae probkulc\n\r\t\b opqiscis man\x15\x18uhutelatzxma abcs234211/[]ASQWECMPPQWW@M~>?" & '\x00'
 #let sampleString = readFile(".gitignore") & '\x00'
-#let sampleString = readFile("sample.txt") & '\x00'
+let sampleString = readFile("sample.txt") & '\x00'
 #let sampleString = readFile("out.txt") & '\x00'
 
 var freq: array[256, int]
@@ -13,14 +13,14 @@ let tree = makeFromFrequencies(freq, freq.len, 15, PM_BOUNDARY)
 var bits = initBitStream()
     
 for c in sampleString:
-  bits.addBitsToStreamReversed(tree.getCode(c.ord), tree.getLength(c.ord))
-
+  bits.addBitsToStreamReversed(getCode(tree, c.ord), getLength(tree,c.ord))
+  
 let bitLen = bits.getBitLen()  
 var input = initBitStream(bits.getData)
-let codeTree = makeFromLengths2(tree.getLengths(), 15)
-
-assert(codeTree.getNumCodes == tree.getNumCodes)
-assert(codeTree.getLengths == tree.getLengths)
+let codeTree = makeFromLengths(getLengths(tree), 15)
+ 
+#assert(codeTree.getNumCodes == tree.getNumCodes)
+#assert(codeTree.getLengths == tree.getLengths)
 
 var output = ""
 while true:

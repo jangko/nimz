@@ -5,14 +5,16 @@ type
     ERR_OVERSUBSCRIBED,
     ERR_WRONG_JUMP_OUTSIDE_OF_TREE,
     ERR_NO_END_CODE,
-    ERR_INTERNAL
+    ERR_INTERNAL,
+    ERR_BAD_CODE_OR_WRONG_TABLE
 
 const error_msg = [
   "bit pointer jumps past memory",
   "oversubscribed",
   "wrong jump outside of tree",
   "no end code",
-  "internal error"
+  "internal error",
+  "bad input code or wrong table construction"
   ]
 
 proc newNZError(msg: string): NZError =

@@ -116,7 +116,7 @@ proc decodeSymbol*(s: var BitStream, tree: HDTree, inbitLength: int): int =
   let newIndex = s.readBitsFromStream(nlen) + len
   code = tree.tree[newIndex].symbol
   if code < 0:
-    nzerror(ERR_INTERNAL)
+    nzerror(ERR_BAD_CODE_OR_WRONG_TABLE)
     
   dec(s.bitPointer, nlen - tree.tree[newIndex].len)
   return code

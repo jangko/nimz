@@ -35,6 +35,8 @@ proc make2D(tree: var HuffmanTree) =
       if treePos > 0x7FFFFFFF or treePos + 2 > tree.numCodes:
         nzerror(ERR_OVERSUBSCRIBED)
 
+      #echo branch
+      #echo tree.tree2d.len
       if tree.tree2d[branch] != 0x7FFF: #not yet filled in
         treePos = tree.tree2d[branch] - tree.numCodes
         continue
@@ -81,6 +83,11 @@ proc makeFromLengths*(input: openArray[int], maxBitLen: int): HuffmanTree =
   result.numCodes  = input.len #number of symbols
   result.maxBitLen = maxBitLen
   result.make1D
+  
+  #for i in 0.. <result.numCodes:
+  #  if result.lengths[i] > 0:
+  #    echo i, ": ", toBin(result.tree1d[i], result.lengths[i])
+  
   result.make2D
 
 proc trimFreq(freq: openArray[int], minCodes: int): seq[int] =

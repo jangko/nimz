@@ -1200,6 +1200,3 @@ proc main() =
   printTree(tree_dd)
   
 main()
-
-
-

@@ -6,7 +6,7 @@ type
     ERR_WRONG_JUMP_OUTSIDE_OF_TREE,
     ERR_NO_END_CODE,
     ERR_INTERNAL,
-    ERR_BAD_CODE_OR_WRONG_TABLE
+    ERR_BAD_CODE_OR_WRONG_TABLE    
 
 const error_msg = [
   "bit pointer jumps past memory",

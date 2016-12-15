@@ -1,3 +1,10 @@
+type
+  LZOpts* = object
+    windowSize*: range[2..32768]
+    minMatch*: range[3..258]
+    niceMatch*: range[3..358]
+    lazyMatching*: bool
+    
 const
   FIRST_LENGTH_CODE_INDEX* = 257
   LAST_LENGTH_CODE_INDEX* = 285
@@ -37,6 +44,19 @@ const
     2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
     8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
 
+  # Max offset of the match to look for, inclusive
+  MAX_WINDOW_SIZE* = 32768
+  
+  # Minimum and maximum length of matches to look for, inclusive
+  MIN_MATCH* = 3
+  MAX_MATCH* = 258
+  
+proc initLZOpts*(): LZOpts =
+  result.windowSize = MAX_WINDOW_SIZE
+  result.minMatch = MIN_MATCH
+  result.niceMatch = 128
+  result.lazyMatching = true
+    
 # search the index in the array, that has the largest value smaller than or equal to the given value,
 # given array must be sorted (if no value is smaller, it returns the size of the given array)
 proc searchCodeIndex(input: openArray[int], value: int): int =

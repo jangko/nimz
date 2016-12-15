@@ -1,4 +1,4 @@
-import lz77uzLib, zerror, lz77util
+import lz77uzLib, zerror, lz77util, lz77hash
 
 let text = """1 In the beginning God created the heavens and the earth.
 2 Now the earth was formless and desolate, and there was darkness upon the surface of the watery deep, and God's active force was moving about over the surface of the waters.
@@ -31,7 +31,25 @@ proc LZ77Decode(input: seq[int16]): string =
     else:
       nzerror(ERR_BAD_CODE_OR_WRONG_TABLE)
 
-var res = LZ77Encode(text.cstring, text.len)
+var opts = initLZOpts()
+var res = lz77hash.LZ77Encode(opts, text.cstring, text.len)
 var output = LZ77Decode(res)
 
 assert(output == text)
+
+# LZ77 todo:
+# -gzip
+# -zopfli
+# -nimz
+
+# hash todo:
+
+
+# test:
+# gzip,zopfli,nimz,uzlib
+# fixed, dynamic
+# deflate, inflate
+# basic_huff, lookup_huff, seq_huff
+# bpm, ccpm, ccpmheap
+# lazy, greedy
+

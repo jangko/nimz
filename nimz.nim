@@ -962,7 +962,7 @@ proc deflateDynamic(nz: nzStream, hash: var NZHash, datapos, dataend: int, final
 
   bitlen_cl = newSeq[int](tree_cl.numcodes)
   for i in 0..tree_cl.numcodes-1:
-    #lenghts of code length tree is in the order as specified by deflate*/
+    #lenghts of code length tree is in the order as specified by deflate
     bitlen_cl[i] = HuffmanTree_getLength(tree_cl, CLCL_ORDER[i])
 
   while(bitlen_cl[bitlen_cl.high] == 0) and (bitlen_cl.len > 4):
